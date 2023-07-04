@@ -1,0 +1,378 @@
+---
+title: "Statistical Modeling and Computing - Final Project"
+author: "Alekhya Chitturi, Jahnavi Shah, Amaan Vora, Vaamshikrishna Chitturi"
+date: "2023-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(glmnet)
+library(ggplot2)
+library(DataExplorer)
+library(hrbrthemes)
+library(viridis)
+library(ggstatsplot)
+library(skimr)
+library(Hmisc)
+library(ggsci)
+library(caret)
+library(ggpubr)
+library(gridExtra)
+library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(pscl)
+library(pROC)
+library(readr)
+library(dplyr)
+library(caret)
+library(repr)
+```
+
+```{r warning=FALSE, message=FALSE}
+data <- read.csv('BankChurners.csv')
+```
+
+```{r warning=FALSE, message=FALSE}
+head(data)
+```
+
+```{r warning=FALSE, message=FALSE}
+cdata <- data[,c(1:21)]
+```
+
+```{r warning=FALSE, message=FALSE}
+introduce(cdata)
+```
+
+```{r warning=FALSE, message=FALSE}
+plot_intro(cdata)
+```
+
+```{r warning=FALSE, message=FALSE}
+plot_missing(cdata)
+```
+
+```{r warning=FALSE, message=FALSE}
+hist(cdata$Customer_Age)
+```
+
+```{r warning=FALSE, message=FALSE}
+hist(cdata$Total_Revolving_Bal)
+```
+
+```{r warning=FALSE, message=FALSE}
+ggplot(cdata, aes(x=Marital_Status, y=Customer_Age, fill=Marital_Status)) + 
+    geom_boxplot(alpha=0.3) +
+    theme(legend.position="none") + theme_minimal()
+```
+
+```{r warning=FALSE, message=FALSE}
+ggplot(cdata, aes(x=Attrition_Flag, y=Customer_Age, fill=Attrition_Flag)) + 
+    geom_boxplot(alpha=0.3) +
+    theme(legend.position="none") + theme_minimal()
+```
+
+```{r warning=FALSE, message=FALSE}
+pltAttCre <- ggbetweenstats(data = cdata, x = Attrition_Flag, y = Credit_Limit)
+
+pltAttCre <- pltAttCre + 
+  labs(
+    x = 'Attrition Type ',
+    y = 'Credit Limit',
+    title = "Credit Limit based on Existing or Attritioned Customer"
+  ) + 
+  theme(
+    plot.title.position = "plot", # slightly different from default
+    axis.text = element_text(color = "black")
+  )
+
+pltAttCre
+```
+
+```{r warning=FALSE, message=FALSE}
+str(cdata)
+```
+
+```{r warning=FALSE, message=FALSE}
+cdata$Income_Category <- factor(cdata$Income_Category)
+levels(cdata$Income_Category)
+```
+
+```{r warning=FALSE, message=FALSE}
+cdata$Income_Category <- factor(cdata$Income_Category,levels(cdata$Income_Category)[c(1,4,3,2,5,6)])
+cdata$Income_Category <- factor(cdata$Income_Category,levels(cdata$Income_Category)[c(6,5,4,3,2,1)])
+```
+
+```{r warning=FALSE, message=FALSE}
+pltIncCus <- ggbetweenstats(data = cdata, x = Income_Category, y =  Customer_Age)
+
+pltIncCus <- pltIncCus + 
+  labs(
+    x = 'Income Level',
+    y = 'Age',
+    title = "Distribution of Income Level vs Age"
+  ) + 
+  theme(
+    plot.title.position = "plot",
+    axis.text = element_text(color = "black")
+  )
+
+pltIncCus
+```
+
+```{r warning=FALSE, message=FALSE}
+cdata$Education_Level <- factor(cdata$Education_Level)
+levels(cdata$Education_Level)
+```
+
+```{r warning=FALSE, message=FALSE}
+cdata$Education_Level <- factor(cdata$Education_Level,levels(cdata$Education_Level)[c(7,6,4,1,3,5,2)])
+levels(cdata$Education_Level)
+```
+
+```{r warning=FALSE, message=FALSE}
+pltEduCre <- ggbetweenstats(data = cdata, x = Education_Level, y = Credit_Limit)
+
+pltEduCre <- pltEduCre +
+  labs(
+    x = 'Education Level',
+    y = 'Credit Limit',
+    title = "Distribution of Education and Approved Credit Limit"
+  ) + 
+  theme(
+    plot.title.position = "plot",
+    axis.text = element_text(color = "black")
+  )
+
+pltEduCre
+```
+
+```{r warning=FALSE, message=FALSE}
+table(cdata$Attrition_Flag)
+```
+
+```{r warning=FALSE, message=FALSE}
+cdata$Attrition_Flag= ifelse(cdata$Attrition_Flag =="Attrited Customer", "1", "0")
+cdata$Attrition_Flag = as.factor(cdata$Attrition_Flag)
+colnames(cdata)[2] <- 'label'
+```
+
+```{r warning=FALSE, message=FALSE}
+table(cdata$label)
+```
+
+```{r warning=FALSE, message=FALSE}
+p1 <- cdata %>% 
+  group_by(label, Contacts_Count_12_mon) %>% 
+  tally() %>% 
+  mutate(prop=n/sum(n)) %>% 
+  ggplot(aes(x=Contacts_Count_12_mon, y=prop, fill=label)) + 
+  geom_col(position="dodge") + 
+  scale_fill_jama() + 
+  labs(y="proportion") + 
+  theme_minimal() + 
+  theme(legend.position="bottom")
+
+p2 <- cdata %>% 
+  group_by(label,Months_Inactive_12_mon) %>% 
+  tally() %>% 
+  mutate(prop=n/sum(n)) %>% 
+  ggplot(aes(x=Months_Inactive_12_mon, y=prop, fill=label)) + 
+  geom_col(position="dodge") + 
+  scale_fill_jama() + 
+  labs(y="proportion") + 
+  theme_minimal() + 
+  theme(legend.position="bottom")
+
+grid.arrange(p1, p2, ncol=2, nrow=1)
+```
+
+```{r warning=FALSE, message=FALSE}
+p5 = cdata %>% 
+  group_by(Gender,label) %>% 
+  tally() %>% 
+  mutate(prop=n/sum(n)) %>% 
+  ggplot(aes(x=label, y=prop, fill=Gender)) + 
+  geom_col(position="dodge") + 
+  scale_fill_jama() + 
+  labs(y="proportion") + 
+  theme_minimal() + 
+  theme(legend.position="bottom")
+
+p6 = cdata %>% 
+  group_by(label,Education_Level) %>% 
+  tally() %>% 
+  mutate(prop=n/sum(n)) %>% 
+  ggplot(aes(x=Education_Level, y=prop, fill=label)) + 
+  geom_col(position="dodge") + 
+  scale_fill_jama() + 
+  labs(y="proportion") + 
+  theme_minimal() + 
+  theme(legend.position="bottom") + 
+  coord_flip()
+
+grid.arrange(p5, p6, ncol=2, nrow=1)
+```
+
+```{r warning=FALSE, message=FALSE}
+p3 = cdata %>% 
+  group_by(label,Total_Relationship_Count) %>% 
+  tally() %>% 
+  mutate(prop=n/sum(n)) %>% 
+  ggplot(aes(x=Total_Relationship_Count, y=prop,fill=label)) + 
+  geom_col(position="dodge") + 
+  scale_fill_jama() + 
+  labs(y="proportion") + 
+  theme_minimal() + 
+  theme(legend.position="bottom") 
+
+p4 = cdata %>% 
+  group_by(label,Dependent_count) %>% 
+  tally() %>% 
+  mutate(prop=n/sum(n)) %>% 
+  ggplot(aes(x=Dependent_count, y=prop,fill=label)) + 
+  geom_col(position="dodge") + 
+  scale_fill_jama() + 
+  labs(y="proportion") + 
+  theme_minimal() + 
+  theme(legend.position="bottom")
+
+grid.arrange(p3, p4, ncol=2, nrow=1)
+```
+
+```{r warning=FALSE, message=FALSE}
+data_num = select_if(cdata,is.numeric)
+data_num = data.frame(lapply(data_num, function(x) as.numeric(as.character(x))))
+res=cor(data_num)
+corrplot(res, type="upper", tl.col="#636363",tl.cex=0.5 )
+```
+
+```{r warning=FALSE, message=FALSE}
+data1 = cdata %>% select(-c(Months_on_book,Total_Trans_Amt, Total_Amt_Chng_Q4_Q1, Avg_Utilization_Ratio, Avg_Open_To_Buy))
+dim(data1)
+```
+
+```{r warning=FALSE, message=FALSE}
+data1_num = select_if(data1,is.numeric)
+data1_num = data.frame(lapply(data1_num, function(x) as.numeric(as.character(x))))
+res2=cor(data1_num)
+corrplot(res2, type="lower", tl.col="#636363",tl.cex=0.5 )
+```
+
+```{r warning=FALSE, message=FALSE}
+trainIndex <- createDataPartition(data1$label, p = .75,list=FALSE)
+training <- data1[trainIndex,]
+testing <- data1[-trainIndex,]
+```
+
+```{r warning=FALSE, message=FALSE}
+training <- training %>% select(-c('CLIENTNUM'))
+testing <- testing %>% select(-c('CLIENTNUM'))
+```
+
+```{r warning=FALSE, message=FALSE}
+model <- glm(label~.,data = training,family = 'binomial')
+summary(model)
+```
+
+```{r warning=FALSE, message=FALSE}
+anova(model, test= "Chisq")
+```
+
+```{r warning=FALSE, message=FALSE}
+importance <-varImp(model,scale = FALSE)
+importance %>% arrange(desc(Overall))
+```
+
+```{r warning=FALSE, message=FALSE}
+prob=predict(model,testing,type="response")
+prob1=rep(0,2531)
+prob1[prob>0.2]=1
+cmlr = confusionMatrix(as.factor(prob1), testing$label, positive="1")
+cmlr
+```
+
+```{r warning=FALSE, message=FALSE}
+recall_lr <- 309/(97 + 309) * 100
+recall_lr
+
+round(cmlr$byClass["F1"], 4)
+```
+
+```{r warning=FALSE, message=FALSE}
+roc_lr2 <- roc(testing$label, prob1, plot=TRUE, print.auc=TRUE)
+```
+
+```{r}
+set.seed(123)
+train_index <- sample(nrow(data), size = 0.7 * nrow(data))
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+# Extract the predictor variables and response variable from the training data
+x_train <- train_data[, -c(1, 2, 4, 6, 7, 8, 9, 22, 23)]
+y_train <- as.numeric(train_data$Attrition_Flag == "Attrited Customer")
+
+x_train <- as.matrix(x_train)
+```
+
+```{r}
+# Fit a ridge regression model using cross-validation to select the lambda parameter
+cv_ridge <- cv.glmnet(x_train, y_train, alpha = 0, nfolds = 10, family = "binomial")
+lambda_ridge <- cv_ridge$lambda.min
+ridge_model <- glmnet(x_train, y_train, alpha = 0, lambda = lambda_ridge, family = "binomial")
+
+# Extract the predictor variables and response variable from the testing data
+x_test <- test_data[, -c(1, 2, 4, 6, 7, 8, 9, 22, 23)]
+y_test <- as.numeric(test_data$Attrition_Flag == "Attrited Customer")
+
+x_test <- as.matrix(x_test)
+
+# Predict the response variable using the ridge model and calculate the accuracy
+ridge_pred <- predict(ridge_model, newx = x_test, type = "response")
+ridge_acc <- mean(round(ridge_pred) == y_test)
+```
+
+```{r}
+# Fit a lasso regression model using cross-validation to select the lambda parameter
+cv_lasso <- cv.glmnet(x_train, y_train, alpha = 1, nfolds = 10, family = "binomial")
+lambda_lasso <- cv_lasso$lambda.min
+lasso_model <- glmnet(x_train, y_train, alpha = 1, lambda = lambda_lasso, family = "binomial")
+
+# Predict the response variable using the lasso model and calculate the accuracy
+lasso_pred <- predict(lasso_model, newx = x_test, type = "response")
+lasso_acc <- mean(round(lasso_pred) == y_test)
+```
+
+```{r}
+ridge_acc
+```
+
+```{r}
+lasso_acc
+```
+
+```{r}
+# Create a table of the number of correct and incorrect predictions for each model
+prediction_table <- data.frame(Model = c("Ridge", "Lasso"),
+                               Correct = c(sum(round(ridge_pred) == y_test), sum(round(lasso_pred) == y_test)),
+                               Incorrect = c(sum(round(ridge_pred) != y_test), sum(round(lasso_pred) != y_test)))
+
+# Print the prediction table
+print(prediction_table)
+```
+
+```{r}
+summary(ridge_model)
+```
+
+```{r}
+summary(lasso_model)
+```
