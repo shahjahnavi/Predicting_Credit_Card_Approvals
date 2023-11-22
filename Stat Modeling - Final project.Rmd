@@ -1,6 +1,5 @@
 ---
-title: "Statistical Modeling and Computing - Final Project"
-author: "Alekhya Chitturi, Jahnavi Shah, Amaan Vora, Vaamshikrishna Chitturi"
+title: Credit Card Approval
 date: "2023-04-23"
 output: html_document
 ---
