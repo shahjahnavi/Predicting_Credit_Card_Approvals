@@ -1,4 +1,4 @@
-# Statistical Modeling and Computing - Final Project
+# Credit Card Approval 
 
 This project explores the factors that influence customer attrition in the banking industry using the BankChurners dataset. The dataset contains information about customer demographics, credit history, and banking activity.
 
